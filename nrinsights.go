@@ -17,7 +17,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -132,6 +131,25 @@ func (c *Connection) MakeEventFromRequest(r *http.Request) (*Event, error) {
 	}
 
 	return e, nil
+}
+
+type Mutator func(r *http.Request, e *Event)
+
+func (c *Connection) Middleware(h http.Handler, fn Mutator) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		event, err := c.MakeEventFromRequest(r)
+		if err != nil {
+			//logger....
+		}
+
+		if fn != nil {
+			fn(r, event)
+		}
+
+		c.RegisterEvent(event)
+
+		h.ServeHTTP(w, r)
+	})
 }
 
 func (c *Connection) RegisterEvent(e *Event) error {
