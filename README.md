@@ -51,7 +51,7 @@ Both pieces of information are found here -> https://insights.newrelic.com/accou
 ```go
     http.Handle("/", insights.Middleware(yourmux, nil)
     // or
-    http.Handle("/", insights.Middleware(yourmux func(r *http.Request, e *nrinsights.Event) {
+    http.Handle("/", insights.Middleware(yourmux, func(r *http.Request, e *nrinsights.Event) {
         // truncate long URLs
         if len(r.URL.Path) > 60 {
             e.Set("url", r.URL.Path[0:60]
