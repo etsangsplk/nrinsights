@@ -14,10 +14,10 @@ See https://insights.newrelic.com/accounts/$ACCOUNT_NUMBER/manage/api_keys.
 
 ```go
 insights = &nrinsights.Connection{
-    NewRelicAccountId: ...,
-    NewRelicAppId:     ...,  // optional
-    InsightsAPIKey:    ...,
-    QueryParamsToSkip: []string{"...", ...},  // optional
+    NewRelicAccountId: 123456,
+    NewRelicAppId:     123456,  // optional
+    InsightsAPIKey:    "jO8hsKlbW6AFXKK1oVVtQtIK82rwcM7qY",
+    QueryParamsToSkip: []string{"sensitive",},  // optional
 }
 
 insights.Start()
