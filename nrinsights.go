@@ -1,8 +1,6 @@
 // TODO: docs
 // TODO: tests
-// TODO: dial down the timeout during quit?
 // TODO: pluggable logger
-// TODO: add middleware
 // TODO: remove debugging, set interval back to 60s
 
 package nrinsights
@@ -21,8 +19,8 @@ import (
 )
 
 const (
-	// How often event batches are sent, in seconds.
-	sendInterval = 10
+	// How often event batches are sent.
+	sendInterval = 10 * time.Second
 
 	// We queue batches when New Relic is unresponsive.
 	// sendInterval * sendQueueSize == <number of seconds before we start dropping event batches>
@@ -33,6 +31,12 @@ const (
 
 	// Maximum size per call, defined by New Relic.
 	maxSizePerCall = 5000000
+
+	// Default HTTP timeout.
+	defaultHttpTimeout = 10 * time.Second
+
+	// Fast HTTP timeout, for exit cleanup.
+	fastHttpTimeout = 2 * time.Second
 )
 
 type Connection struct {
@@ -51,6 +55,7 @@ type Connection struct {
 	eventsDone  chan bool
 	batchesDone chan bool
 	unsent      *list.List
+	httpTimeout time.Duration
 }
 
 type Event struct {
@@ -73,6 +78,7 @@ func (c *Connection) Start() {
 	c.eventsDone = make(chan bool, 1)
 	c.batchesDone = make(chan bool, 1)
 	c.unsent = list.New()
+	c.httpTimeout = defaultHttpTimeout
 
 	go c.makeBatches()
 	go c.sendBatches()
@@ -166,7 +172,7 @@ func (c *Connection) RegisterEvent(e *Event) error {
 }
 
 func (c *Connection) makeBatches() {
-	ticker := time.NewTicker(sendInterval * time.Second)
+	ticker := time.NewTicker(sendInterval)
 
 outer:
 	for {
@@ -215,7 +221,9 @@ func (c *Connection) sendBatches() {
 		c.sendUnsent()
 	}
 
+	c.httpTimeout = fastHttpTimeout // decrease for prompt exit
 	c.sendUnsent()
+
 	c.batchesDone <- true
 }
 
@@ -241,7 +249,7 @@ func (c *Connection) sendBatch(batch string) bool {
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{
-		Timeout: 10 * time.Second,
+		Timeout: c.httpTimeout,
 	}
 	resp, err := client.Do(req)
 	if err != nil {
