@@ -146,9 +146,11 @@ func (c *Connection) Middleware(h http.Handler, fn Mutator) http.Handler {
 			fn(r, event)
 		}
 
-		c.RegisterEvent(event)
-
+		start := time.Now()
 		h.ServeHTTP(w, r)
+		event.Set("duration", time.Since(start).Seconds())
+
+		c.RegisterEvent(event)
 	})
 }
 
