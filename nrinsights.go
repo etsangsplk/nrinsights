@@ -46,7 +46,8 @@ type Connection struct {
 	// HTTP request params to be ignored
 	QueryParamsToSkip []string
 
-	skipParams  map[string]bool
+	host        string          // cache
+	skipParams  map[string]bool // cache
 	eventQueue  []string
 	queueBytes  int
 	events      chan string
@@ -79,6 +80,12 @@ func (c *Connection) Start() {
 	c.unsent = list.New()
 	c.httpTimeout = defaultHttpTimeout
 
+	if hostname, err := os.Hostname(); err != nil {
+		c.host = "<unknown>"
+	} else {
+		c.host = hostname
+	}
+
 	go c.makeBatches()
 	go c.sendBatches()
 }
@@ -94,13 +101,8 @@ func (c *Connection) NewEvent() *Event {
 	var e Event
 	e.values = make(map[string]interface{})
 
-	if hostname, err := os.Hostname(); err == nil {
-		e.Set("host", hostname)
-	} else {
-		e.Set("host", "default")
-	}
-
 	e.Set("accountId", c.NewRelicAccountId)
+	e.Set("host", c.host)
 
 	if c.NewRelicAppId != 0 {
 		e.Set("appId", c.NewRelicAppId)
