@@ -15,6 +15,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/jeremywohl/flatten"
 )
 
 const (
@@ -124,7 +126,7 @@ func (c *Connection) MakeEventFromRequest(r *http.Request) (*Event, error) {
 		if _, ok := c.skipParams[strings.ToLower(key)]; ok {
 			continue
 		}
-		e.Set(key, qvalues.Get(key))
+		e.Set("p:"+key, qvalues.Get(key))
 	}
 
 	if r.Method == "POST" {
@@ -134,7 +136,28 @@ func (c *Connection) MakeEventFromRequest(r *http.Request) (*Event, error) {
 		}
 		bodyreader := ioutil.NopCloser(bytes.NewBuffer(bodybuf))
 		r.Body = bodyreader
-		e.Set("body", string(bodybuf[:]))
+
+		var nested, flat map[string]interface{}
+
+		err = json.Unmarshal(bodybuf, &nested)
+		if err != nil {
+			log.Printf("failed to unmarshal request json: %v; storing body as one string", err)
+			e.Set("body", string(bodybuf[:]))
+			goto done
+		}
+
+		flat, err = flatten.Flatten(nested, "p:", flatten.RAILS_STYLE)
+		if err != nil {
+			log.Printf("failed to flatten request params: %v; storing body as one string", err)
+			e.Set("body", string(bodybuf[:]))
+			goto done
+		}
+
+		for k, v := range flat {
+			e.Set(k, v)
+		}
+
+	done:
 	}
 
 	return e, nil
