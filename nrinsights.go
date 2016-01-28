@@ -146,7 +146,9 @@ func (c *Connection) Middleware(h http.Handler, fn Mutator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		event, err := c.MakeEventFromRequest(r)
 		if err != nil {
-			//logger....
+			log.Printf("insights middleware: failed to make event from request: %v", err)
+			h.ServeHTTP(w, r)
+			return
 		}
 
 		if fn != nil {
