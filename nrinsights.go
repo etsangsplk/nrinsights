@@ -1,7 +1,6 @@
 // TODO: docs
 // TODO: tests
 // TODO: pluggable logger
-// TODO: remove debugging, set interval back to 60s
 
 package nrinsights
 
@@ -20,7 +19,7 @@ import (
 
 const (
 	// How often event batches are sent.
-	sendInterval = 10 * time.Second
+	sendInterval = 60 * time.Second
 
 	// We queue batches when New Relic is unresponsive.
 	// sendInterval * sendQueueSize == <number of seconds before we start dropping event batches>
