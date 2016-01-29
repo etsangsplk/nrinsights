@@ -196,6 +196,8 @@ func (c *Connection) MakeEventFromRequest(r *http.Request) (*Event, error) {
 
 type Mutator func(r *http.Request, e *Event)
 
+// Sets all the values from MakeEventFromRequest and adds call time "duration" in floating point seconds,
+// and resulting "status-code".
 func (c *Connection) Middleware(h http.Handler, fn Mutator) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		event, err := c.MakeEventFromRequest(r)
@@ -210,11 +212,25 @@ func (c *Connection) Middleware(h http.Handler, fn Mutator) http.Handler {
 		}
 
 		start := time.Now()
-		h.ServeHTTP(w, r)
+		captureWriter := &captureStatus{ResponseWriter: w, status: 200}
+
+		h.ServeHTTP(captureWriter, r)
+
 		event.Set("duration", time.Since(start).Seconds())
+		event.Set("status-code", captureWriter.status)
 
 		c.RegisterEvent(event)
 	})
+}
+
+type captureStatus struct {
+	http.ResponseWriter
+	status int
+}
+
+func (cs *captureStatus) WriteHeader(status int) {
+	cs.status = status
+	cs.ResponseWriter.WriteHeader(status)
 }
 
 func (c *Connection) RegisterEvent(e *Event) error {
