@@ -40,6 +40,18 @@ const (
 	fastHttpTimeout = 2 * time.Second
 )
 
+type SeparatorStyle int
+
+const (
+	_ SeparatorStyle = 0
+
+	// Separate nested key components with dots, e.g. "a.b.1.c.d"
+	DotStyle = SeparatorStyle(flatten.DotStyle)
+
+	// Separate ala Rails, e.g. "a[b][c][1][d]"
+	RailsStyle = SeparatorStyle(flatten.RailsStyle)
+)
+
 type Connection struct {
 	NewRelicAccountId int
 	NewRelicAppId     int
@@ -47,6 +59,12 @@ type Connection struct {
 
 	// HTTP request params to be ignored
 	QueryParamsToSkip []string
+
+	// Whether to flatten POST bodies and assign separate keys to each -- these must uniformly be JSON bodies
+	FlattenPosts bool
+
+	// POST parameter formatting, defaults to DotStyle
+	FlattenStyle SeparatorStyle
 
 	host        string          // cache
 	skipParams  map[string]bool // cache
@@ -88,6 +106,10 @@ func (c *Connection) Start() {
 		c.host = hostname
 	}
 
+	if c.FlattenStyle == 0 {
+		c.FlattenStyle = DotStyle
+	}
+
 	go c.makeBatches()
 	go c.sendBatches()
 }
@@ -116,6 +138,11 @@ func (c *Connection) NewEvent() *Event {
 	return &e
 }
 
+// Create an event with values extracted from http.Request.  Sets "url" and "method".
+// For each query parameter, sets a "p:<key>" and the first value associated with <key> in the query.
+// If c.FlattenPosts is true, POST bodies are considered to be JSON strings and each key-value
+// pair sent separately.  (Any hierarchy in this JSON is flattened into a one-dimensional map with compound keys.)
+// If c.FlattenPosts is false (default), POST bodies are sent as a single "body" value.
 func (c *Connection) MakeEventFromRequest(r *http.Request) (*Event, error) {
 	e := c.NewEvent()
 	e.Set("url", r.URL.Path)
@@ -137,24 +164,28 @@ func (c *Connection) MakeEventFromRequest(r *http.Request) (*Event, error) {
 		bodyreader := ioutil.NopCloser(bytes.NewBuffer(bodybuf))
 		r.Body = bodyreader
 
-		var nested, flat map[string]interface{}
+		if c.FlattenPosts {
+			var nested, flat map[string]interface{}
 
-		err = json.Unmarshal(bodybuf, &nested)
-		if err != nil {
-			log.Printf("failed to unmarshal request json: %v; storing body as one string", err)
+			err = json.Unmarshal(bodybuf, &nested)
+			if err != nil {
+				log.Printf("failed to unmarshal request json: %v; storing body as one string", err)
+				e.Set("body", string(bodybuf[:]))
+				goto done
+			}
+
+			flat, err = flatten.Flatten(nested, "p:", flatten.SeparatorStyle(c.FlattenStyle))
+			if err != nil {
+				log.Printf("failed to flatten request params: %v; storing body as one string", err)
+				e.Set("body", string(bodybuf[:]))
+				goto done
+			}
+
+			for k, v := range flat {
+				e.Set(k, v)
+			}
+		} else {
 			e.Set("body", string(bodybuf[:]))
-			goto done
-		}
-
-		flat, err = flatten.Flatten(nested, "p:", flatten.RAILS_STYLE)
-		if err != nil {
-			log.Printf("failed to flatten request params: %v; storing body as one string", err)
-			e.Set("body", string(bodybuf[:]))
-			goto done
-		}
-
-		for k, v := range flat {
-			e.Set(k, v)
 		}
 
 	done:
