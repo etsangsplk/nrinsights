@@ -103,15 +103,15 @@ func (c *Connection) NewEvent() *Event {
 	var e Event
 	e.values = make(map[string]interface{})
 
+	// defined by New Relic
 	e.Set("accountId", c.NewRelicAccountId)
-	e.Set("host", c.host)
-
 	if c.NewRelicAppId != 0 {
 		e.Set("appId", c.NewRelicAppId)
 	}
-
 	e.Set("eventType", "Transaction")
 	e.Set("timestamp", time.Now().Unix())
+
+	e.Set("host", c.host)
 
 	return &e
 }
