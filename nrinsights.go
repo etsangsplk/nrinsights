@@ -119,7 +119,7 @@ func (c *Connection) NewEvent() *Event {
 func (c *Connection) MakeEventFromRequest(r *http.Request) (*Event, error) {
 	e := c.NewEvent()
 	e.Set("url", r.URL.Path)
-	e.Set("http-method", r.Method)
+	e.Set("method", r.Method)
 
 	qvalues := r.URL.Query()
 	for key := range qvalues {
