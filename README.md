@@ -56,3 +56,8 @@ http.Handle("/", insights.Middleware(handler, func(r *http.Request, e *nrinsight
     }
 }
 ```
+
+## Thanks
+
+- [Eric Mann](https://github.com/ericdmann) -- This project started with his tunnelRelic, but I eventually decided to rewrite it.
+- [Todd Calvert](https://github.com/calveto) -- Pair programming and enhancements.
